@@ -1,73 +1,65 @@
-from app.services import pantryservices
-from google import genai
+from __future__ import annotations
+
 import os
-from google.genai import types
-from dotenv import load_dotenv
-import json
+from fastapi import HTTPException
 
-load_dotenv()
-
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+from app.services import ollama_service, pantryservices
 
 
 async def process_invoice(file):
+    """
+    Receipt -> pantry items using local Ollama (no tokens/quota).
+    Expected Ollama output: JSON array of objects: [{ "name": str, "qty": int }...]
+    """
+    image_bytes = await file.read()
+
+    prompt = """
+Extract grocery items from this receipt image.
+Return ONLY a JSON array in this exact format:
+[
+  {"name":"string","qty":1}
+]
+Rules:
+- Include ONLY food/grocery items (ignore prices, totals, non-food items, discounts).
+- If quantity is not present, use qty=1.
+- "name" must be a short grocery name (e.g., "milk", "rice", "eggs").
+- Return ONLY the JSON array. No markdown, no commentary.
+""".strip()
+
     try:
-        image_bytes = await file.read()
-
-        prompt = """
-        Extract grocery items from this receipt.
-
-        Return ONLY JSON in this format:
-        [
-          {"name": "milk", "qty": 2},
-          {"name": "rice", "qty": 1}
-        ]
-
-        Ignore prices, totals, and non-food items.
-        """
-
-        response = client.models.generate_content(
-            model="gemini-3-flash-preview",
-            contents=[
-                prompt,
-                types.Part.from_bytes(
-                    data=image_bytes,
-                    mime_type=file.content_type or "image/png"
-                )
-            ]
+        items = ollama_service.generate_vision_items(
+            image_bytes=image_bytes,
+            prompt=prompt,
+            model=os.getenv("OLLAMA_VISION_MODEL"),
         )
-
-        text = response.text
-        text = text.replace("```json", "").replace("```", "")
-
-        items = json.loads(text)
-
     except Exception as e:
-        print("🔥 GEMINI / PARSE ERROR:", e)
+        raise HTTPException(status_code=422, detail=f"Ollama invoice extraction failed: {e}")
 
-        # ✅ FALLBACK DATA (SMARTER)
-        items = [
-            {"name": "Rice", "qty": 1},
-            {"name": "Milk", "qty": 1},
-            {"name": "Eggs", "qty": 6},
-            {"name": "Bread", "qty": 1}
-        ]
+    if not isinstance(items, list):
+        raise HTTPException(status_code=422, detail="Ollama invoice extraction did not return a JSON array")
 
-    # ✅ Continue same logic (NO BREAK)
     added_items = []
-
     for item in items:
-        enriched = {
-            "name": item.get("name"),
-            "qty": item.get("qty", 1),
-            "category": "general",
-            "expiry": "30/03/2026"
-        }
+        if not isinstance(item, dict):
+            continue
 
+        name = str(item.get("name", "")).strip()
+        if not name:
+            continue
+
+        qty_raw = item.get("qty", 1)
+        try:
+            qty = int(qty_raw)
+        except Exception:
+            qty = 1
+
+        enriched = {
+            "name": name,
+            "qty": qty,
+            "category": "general",
+            "expiry": "30/03/2026",
+        }
         pantryservices.add_item_obj(enriched)
         added_items.append(enriched)
 
-    return {
-        "message": "Invoice processed",
-        "items_added": added_items
-    }
+    return {"message": "Invoice processed", "items_added": added_items}

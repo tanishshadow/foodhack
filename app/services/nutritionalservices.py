@@ -1,45 +1,33 @@
-from google import genai
+from __future__ import annotations
+
 import os
-from dotenv import load_dotenv
-import json
+from typing import Any
 
-load_dotenv()
+from fastapi import HTTPException
 
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+from app.services import ollama_service
 
 
-def get_nutrition(meal_name: str):
+def get_nutrition(meal_name: str) -> dict[str, Any]:
+    """
+    Local nutrition estimate (no token quota) using Ollama.
+    Expected JSON schema:
+      { "calories": int, "protein": int, "carbs": int, "fat": int }
+    """
+    prompt = f"""
+Give nutritional information for the meal: {meal_name}
+
+Return ONLY a valid JSON object in exactly this format (no markdown, no commentary):
+{{
+  "calories": 400,
+  "protein": 20,
+  "carbs": 50,
+  "fat": 10
+}}
+""".strip()
+
     try:
-        prompt = f"""
-        Give nutritional information for the meal: {meal_name}
-
-        Return ONLY JSON in this format:
-        {{
-          "calories": 400,
-          "protein": 20,
-          "carbs": 50,
-          "fat": 10
-        }}
-        """
-
-        response = client.models.generate_content(
-            model="gemini-3-flash-preview",
-            contents=prompt
-        )
-
-        text = response.text
-        text = text.replace("```json", "").replace("```", "")
-
-        data = json.loads(text)
-        return data
-
+        model = os.getenv("OLLAMA_TEXT_MODEL")
+        return ollama_service.generate_text_json(prompt, model=model)
     except Exception as e:
-        print("NUTRITION ERROR:", e)
-
-        # FALLBACK 
-        return {
-            "calories": 350,
-            "protein": 15,
-            "carbs": 45,
-            "fat": 10
-        }
+        raise HTTPException(status_code=422, detail=f"Ollama nutrition generation failed: {e}")
