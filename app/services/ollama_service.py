@@ -57,9 +57,13 @@ def _extract_first_json_object(text: str) -> dict[str, Any]:
 
 def _extract_first_json_array(text: str) -> list[Any]:
     cleaned = (text or "").strip()
-    cleaned = cleaned.replace("```json", "").replace("```", "").strip()
-
-    # Direct parse attempt
+    
+    # Aggressive markdown cleanup
+    cleaned = re.sub(r"```(?:json)?\s*", "", cleaned)
+    cleaned = cleaned.replace("```", "").strip()
+    
+    # Remove any leading/trailing text before array (e.g., "Here's the array:")
+    # First try direct parse on the full cleaned text
     try:
         arr = json.loads(cleaned)
         if isinstance(arr, list):
@@ -67,24 +71,54 @@ def _extract_first_json_array(text: str) -> list[Any]:
     except Exception:
         pass
 
-    # Extract first [ ... ] block
+    # Extract first [ ... ] block, handling nested brackets
     start = cleaned.find("[")
-    end = cleaned.rfind("]")
-    if start != -1 and end != -1 and end > start:
-        candidate = cleaned[start : end + 1].strip()
-        parsed = json.loads(candidate)
-        if isinstance(parsed, list):
-            return parsed
+    if start != -1:
+        bracket_count = 0
+        end = -1
+        for i in range(start, len(cleaned)):
+            if cleaned[i] == "[":
+                bracket_count += 1
+            elif cleaned[i] == "]":
+                bracket_count -= 1
+                if bracket_count == 0:
+                    end = i
+                    break
+        
+        if end != -1:
+            candidate = cleaned[start : end + 1].strip()
+            try:
+                parsed = json.loads(candidate)
+                if isinstance(parsed, list):
+                    return parsed
+            except Exception:
+                pass
 
-    # Last resort: regex to find an array
+    # Last resort: greedy regex to find an array (non-greedy first)
+    match = re.search(r"\[[\s\S]*?\]", cleaned)
+    if match:
+        candidate = match.group(0)
+        try:
+            parsed = json.loads(candidate)
+            if isinstance(parsed, list):
+                return parsed
+        except Exception:
+            pass
+
+    # If still not found, try greedy regex
     match = re.search(r"\[[\s\S]*\]", cleaned)
     if match:
         candidate = match.group(0)
-        parsed = json.loads(candidate)
-        if isinstance(parsed, list):
-            return parsed
+        try:
+            parsed = json.loads(candidate)
+            if isinstance(parsed, list):
+                return parsed
+        except Exception:
+            pass
 
-    raise ValueError("Could not locate a JSON array in Ollama output")
+    # Better error message with context
+    preview = cleaned[:200] if len(cleaned) > 200 else cleaned
+    raise ValueError(f"Could not locate a JSON array in Ollama output. Got: {preview}")
 
 
 def _post_ollama(payload: dict[str, Any]) -> dict[str, Any]:

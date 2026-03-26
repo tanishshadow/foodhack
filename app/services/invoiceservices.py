@@ -3,40 +3,24 @@ from __future__ import annotations
 import os
 from fastapi import HTTPException
 
-from app.services import ollama_service, pantryservices
+from app.services import invoiceservices_impl, pantryservices
 
 
 async def process_invoice(file):
     """
-    Receipt -> pantry items using local Ollama (no tokens/quota).
-    Expected Ollama output: JSON array of objects: [{ "name": str, "qty": int }...]
+    Receipt -> pantry items using OCR + Ollama for intelligent parsing.
+    First extracts text via OCR, then uses Ollama to parse items.
+    Falls back to vision model if OCR is insufficient.
     """
     image_bytes = await file.read()
 
-    prompt = """
-Extract grocery items from this receipt image.
-Return ONLY a JSON array in this exact format:
-[
-  {"name":"string","qty":1}
-]
-Rules:
-- Include ONLY food/grocery items (ignore prices, totals, non-food items, discounts).
-- If quantity is not present, use qty=1.
-- "name" must be a short grocery name (e.g., "milk", "rice", "eggs").
-- Return ONLY the JSON array. No markdown, no commentary.
-""".strip()
-
     try:
-        items = ollama_service.generate_vision_items(
-            image_bytes=image_bytes,
-            prompt=prompt,
-            model=os.getenv("OLLAMA_VISION_MODEL"),
-        )
+        items = invoiceservices_impl.process_receipt_with_ocr(image_bytes)
     except Exception as e:
-        raise HTTPException(status_code=422, detail=f"Ollama invoice extraction failed: {e}")
+        raise HTTPException(status_code=422, detail=f"Invoice/receipt processing failed: {e}")
 
     if not isinstance(items, list):
-        raise HTTPException(status_code=422, detail="Ollama invoice extraction did not return a JSON array")
+        raise HTTPException(status_code=422, detail="Invoice processing did not return items")
 
     added_items = []
     for item in items:

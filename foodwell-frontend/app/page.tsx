@@ -94,6 +94,15 @@ export default function Home() {
   const[profileError, setProfileError] = useState("");
 
   useEffect(() => {
+    // Load profile from localStorage first
+    const saved = localStorage.getItem("healthProfile");
+    if (saved) {
+      try {
+        setProfile(JSON.parse(saved));
+      } catch (e) {
+        console.error("Failed to parse saved profile:", e);
+      }
+    }
     fetchPantry();
     fetchProfile();
   },[]);
@@ -114,7 +123,7 @@ export default function Home() {
       const res = await fetch(`${BASE_URL}/health-profile`);
       if (!res.ok) return;
       const data = await res.json();
-      if (data) setProfile(data);
+      if (data && (data.age || data.goal)) setProfile(data);
     } catch (err) {
       console.error("Failed to fetch health profile:", err);
     }
@@ -179,7 +188,11 @@ export default function Home() {
     setMeals(null);
     setMealsError("");
     try {
-      const res = await fetch(`${BASE_URL}/meal/generate`);
+      const res = await fetch(`${BASE_URL}/meal/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(profile),
+      });
       if (!res.ok) {
         let msg = `Meal generation failed (${res.status})`;
         try {
@@ -230,7 +243,8 @@ export default function Home() {
   };
 
   const saveProfile = async () => {
-    setSavingProfile(true); setProfileError("");
+    setSavingProfile(true); 
+    setProfileError("");
     try {
       const res = await fetch(`${BASE_URL}/health-profile`, {
         method: "POST",
@@ -238,9 +252,15 @@ export default function Home() {
         body: JSON.stringify(profile),
       });
       if (!res.ok) throw new Error(`Server returned ${res.status}`);
+      
+      // Save to localStorage as backup
+      localStorage.setItem("healthProfile", JSON.stringify(profile));
+      
       setProfileSaved(true);
       setTimeout(() => setProfileSaved(false), 3000);
-    } catch (err: any) { setProfileError(err.message || "Failed to save"); }
+    } catch (err: any) { 
+      setProfileError(err.message || "Failed to save"); 
+    }
     finally { setSavingProfile(false); }
   };
 
