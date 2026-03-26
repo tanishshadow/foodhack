@@ -92,6 +92,7 @@ export default function Home() {
   const[savingProfile, setSavingProfile] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
   const[profileError, setProfileError] = useState("");
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
 
   useEffect(() => {
     // Load profile from localStorage first
@@ -106,6 +107,21 @@ export default function Home() {
     fetchPantry();
     fetchProfile();
   },[]);
+
+  useEffect(() => {
+    // Close dropdown when clicking outside
+    const handleClickOutside = (e: Event) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest("[data-profile-dropdown]")) {
+        setShowProfileDropdown(false);
+      }
+    };
+    
+    if (showProfileDropdown) {
+      document.addEventListener("click", handleClickOutside);
+      return () => document.removeEventListener("click", handleClickOutside);
+    }
+  }, [showProfileDropdown]);
 
   // ── Pantry & Meals ──────────────────────────────────────────────────────
   const fetchPantry = async () => {
@@ -265,6 +281,12 @@ export default function Home() {
   };
 
   // ── Derived ──────────────────────────────────────────────────────────────
+  const isProfileComplete = profile.age && profile.gender && profile.weight && profile.height && profile.goal;
+  const getGoalIcon = (goal: string) => {
+    const goalObj = GOALS.find(g => g.value === goal);
+    return goalObj?.icon || "🎯";
+  };
+  
   const expiringCount = pantry.filter(i => i.status?.includes("expiring")).length;
   const soonCount     = pantry.filter(i => i.status?.includes("soon")).length;
   const freshCount    = pantry.filter(i => !i.status?.includes("expiring") && !i.status?.includes("soon")).length;
@@ -659,6 +681,193 @@ export default function Home() {
                 {activeTab === "meals" && "AI-generated recipes based on your pantry."}
                 {activeTab === "profile" && "Tailor recommendations to your dietary needs."}
               </p>
+              
+              {/* Profile Summary Pill with Dropdown */}
+              {isProfileComplete && (
+                <div style={{ position: "relative", display: "inline-block" }} data-profile-dropdown="true">
+                  <div
+                    style={{
+                      marginTop: "1rem",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "0.75rem",
+                      backgroundColor: "var(--bp-accent)",
+                      padding: "0.75rem 1.25rem",
+                      borderRadius: "var(--radius-pill)",
+                      border: "2px solid var(--bp-dark)",
+                      boxShadow: "3px 3px 0 var(--bp-dark)",
+                      fontWeight: 700,
+                      fontSize: "0.95rem",
+                      cursor: "pointer",
+                      transition: "all 0.2s",
+                    }}
+                    onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.transform = "translate(-2px, -2px)";
+                      e.currentTarget.style.boxShadow = "5px 5px 0 var(--bp-dark)";
+                    }}
+                    onMouseLeave={e => {
+                      if (!showProfileDropdown) {
+                        e.currentTarget.style.transform = "translate(0, 0)";
+                        e.currentTarget.style.boxShadow = "3px 3px 0 var(--bp-dark)";
+                      }
+                    }}>
+                    <span>{getGoalIcon(profile.goal)}</span>
+                    <span>{profile.age}y • {profile.goal.replace(/_/g, ' ').toUpperCase()}</span>
+                    {profile.diet_type && profile.diet_type !== "none" && (
+                      <span>• {DIET_TYPES.find(d => d.value === profile.diet_type)?.label || profile.diet_type}</span>
+                    )}
+                    <span style={{ marginLeft: "0.5rem", fontSize: "1rem" }}>▼</span>
+                  </div>
+
+                  {/* Dropdown Menu */}
+                  {showProfileDropdown && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "calc(100% + 0.5rem)",
+                        left: 0,
+                        backgroundColor: "var(--bp-white)",
+                        border: "2px solid var(--bp-dark)",
+                        borderRadius: "var(--radius-lg)",
+                        boxShadow: "6px 6px 0 var(--bp-dark)",
+                        zIndex: 1000,
+                        minWidth: "320px",
+                        animation: "fadeIn 0.2s ease",
+                      }}>
+                      {/* Header */}
+                      <div
+                        style={{
+                          padding: "1.5rem",
+                          borderBottom: "2px solid var(--bp-dark)",
+                          backgroundColor: "var(--bp-blue)",
+                        }}>
+                        <div style={{ fontSize: "1.3rem", marginBottom: "0.25rem", fontWeight: 700 }}>
+                          {getGoalIcon(profile.goal)} Your Profile
+                        </div>
+                        <div style={{ fontSize: "0.85rem", opacity: 0.8 }}>Active • Profile Complete</div>
+                      </div>
+
+                      {/* Profile Details */}
+                      <div style={{ padding: "1.5rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
+                        {/* Basics */}
+                        <div>
+                          <div style={{ fontSize: "0.8rem", fontWeight: 700, textTransform: "uppercase", opacity: 0.75, marginBottom: "0.5rem" }}>Basics</div>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", fontSize: "0.95rem" }}>
+                            <div>
+                              <div style={{ fontWeight: 700 }}>Age</div>
+                              <div style={{ color: "var(--bp-accent)" }}>{profile.age} years</div>
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: 700 }}>Gender</div>
+                              <div style={{ color: "var(--bp-accent)" }}>{profile.gender}</div>
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: 700 }}>Weight</div>
+                              <div style={{ color: "var(--bp-accent)" }}>{profile.weight} {profile.weight_unit}</div>
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: 700 }}>Height</div>
+                              <div style={{ color: "var(--bp-accent)" }}>{profile.height} {profile.height_unit}</div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Goals & Activity */}
+                        <div style={{ borderTop: "1px solid var(--bp-dark)", paddingTop: "1rem" }}>
+                          <div style={{ fontSize: "0.8rem", fontWeight: 700, textTransform: "uppercase", opacity: 0.75, marginBottom: "0.5rem" }}>Goals</div>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", fontSize: "0.95rem" }}>
+                            <div>
+                              <div style={{ fontWeight: 700 }}>Goal</div>
+                              <div style={{ color: "var(--bp-accent)" }}>{profile.goal.replace(/_/g, ' ').toUpperCase()}</div>
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: 700 }}>Activity</div>
+                              <div style={{ color: "var(--bp-accent)" }}>{profile.activity_level.toUpperCase()}</div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Diet & Health */}
+                        {(profile.diet_type !== "none" || profile.allergies.length > 0 || profile.intolerances.length > 0) && (
+                          <div style={{ borderTop: "1px solid var(--bp-dark)", paddingTop: "1rem" }}>
+                            <div style={{ fontSize: "0.8rem", fontWeight: 700, textTransform: "uppercase", opacity: 0.75, marginBottom: "0.5rem" }}>Diet & Health</div>
+                            {profile.diet_type !== "none" && (
+                              <div style={{ marginBottom: "0.5rem" }}>
+                                <span style={{ fontWeight: 700 }}>Diet: </span>
+                                <span style={{ color: "var(--bp-accent)" }}>{DIET_TYPES.find(d => d.value === profile.diet_type)?.label}</span>
+                              </div>
+                            )}
+                            {profile.allergies.length > 0 && (
+                              <div style={{ marginBottom: "0.5rem" }}>
+                                <span style={{ fontWeight: 700 }}>Allergies: </span>
+                                <span style={{ color: "var(--bp-accent)", fontSize: "0.9rem" }}>{profile.allergies.join(", ")}</span>
+                              </div>
+                            )}
+                            {profile.intolerances.length > 0 && (
+                              <div>
+                                <span style={{ fontWeight: 700 }}>Intolerances: </span>
+                                <span style={{ color: "var(--bp-accent)", fontSize: "0.9rem" }}>{profile.intolerances.join(", ")}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div style={{ padding: "1rem 1.5rem", borderTop: "2px solid var(--bp-dark)", display: "flex", gap: "0.75rem" }}>
+                        <button
+                          onClick={() => {
+                            setActiveTab("profile");
+                            setShowProfileDropdown(false);
+                          }}
+                          style={{
+                            flex: 1,
+                            padding: "0.75rem 1rem",
+                            backgroundColor: "var(--bp-yellow)",
+                            border: "2px solid var(--bp-dark)",
+                            borderRadius: "var(--radius-md)",
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            transition: "all 0.2s",
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.transform = "translate(-2px, -2px)";
+                            e.currentTarget.style.boxShadow = "3px 3px 0 var(--bp-dark)";
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.transform = "translate(0, 0)";
+                            e.currentTarget.style.boxShadow = "none";
+                          }}>
+                          Edit Profile
+                        </button>
+                        <button
+                          onClick={() => setShowProfileDropdown(false)}
+                          style={{
+                            flex: 1,
+                            padding: "0.75rem 1rem",
+                            backgroundColor: "var(--bp-white)",
+                            border: "2px solid var(--bp-dark)",
+                            borderRadius: "var(--radius-md)",
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            transition: "all 0.2s",
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.transform = "translate(-2px, -2px)";
+                            e.currentTarget.style.boxShadow = "3px 3px 0 var(--bp-dark)";
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.transform = "translate(0, 0)";
+                            e.currentTarget.style.boxShadow = "none";
+                          }}>
+                          Close
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             
             {activeTab !== "profile" && (
