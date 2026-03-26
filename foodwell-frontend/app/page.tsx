@@ -7,10 +7,16 @@ const BASE_URL = "http://localhost:8000";
 export default function Home() {
   const [pantry, setPantry] = useState<any[]>([]);
   const [meals, setMeals] = useState<any>(null);
+  const [nutritionMap, setNutritionMap] = useState<any>({});
   const [loading, setLoading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [activeTab, setActiveTab] = useState<"pantry" | "meals">("pantry");
   const [dragOver, setDragOver] = useState(false);
+  const fetchNutrition = async (mealName:string) => {
+  const res = await fetch(`${BASE_URL}/nutrition/${mealName}`);
+  const data = await res.json();
+  return data;
+};
 
   useEffect(() => {
     fetchPantry();
@@ -49,7 +55,7 @@ export default function Home() {
 
   const generateMeals = async () => {
     setLoading(true);
-    const res = await fetch(`${BASE_URL}/meals/generate`);
+    const res = await fetch(`${BASE_URL}/meal/generate`);
     const data = await res.json();
     console.log(data);
     setMeals(data);
@@ -365,20 +371,38 @@ export default function Home() {
         }
 
         /* ── PANTRY GRID ── */
-        .pantry-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-          gap: 14px;
-        }
+.pantry-card {
+  border-radius: 18px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 
-        .pantry-card {
-          border-radius: 16px;
-          padding: 18px 20px;
-          display: flex; flex-direction: column; gap: 12px;
-          transition: transform 0.15s ease, box-shadow 0.15s ease;
-          position: relative; overflow: hidden;
-        }
-        .pantry-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.09); }
+  backdrop-filter: blur(6px);
+  background: rgba(255,255,255,0.7);
+
+  transition: all 0.25s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.pantry-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent, rgba(255,255,255,0.4), transparent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.pantry-card:hover::before {
+  opacity: 1;
+}
+
+.pantry-card:hover {
+  transform: translateY(-4px) scale(1.01);
+  box-shadow: 0 14px 40px rgba(0,0,0,0.12);
+}
 
         .pantry-card.fresh { background: white; border: 1.5px solid var(--green-soft); }
         .pantry-card.soon { background: #FFFBF0; border: 1.5px solid var(--yellow-soft); }
@@ -422,27 +446,21 @@ export default function Home() {
         .empty-sub { font-size: 14px; }
 
         /* ── MEALS ── */
-        .meals-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-          gap: 20px;
-        }
-
         .meal-card {
-          background: white;
-          border-radius: 20px;
-          padding: 24px;
-          border: 1.5px solid var(--parchment);
-          transition: transform 0.15s ease, box-shadow 0.15s ease;
-          position: relative; overflow: hidden;
-        }
-        .meal-card::after {
-          content: '';
-          position: absolute; top: 0; right: 0;
-          width: 80px; height: 80px;
-          background: radial-gradient(circle at top right, rgba(74,103,65,0.07) 0%, transparent 70%);
-        }
-        .meal-card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0,0,0,0.08); }
+  background: linear-gradient(145deg, #ffffff, #f7f4ee);
+  border-radius: 22px;
+  padding: 26px;
+  border: 1px solid var(--parchment);
+
+  transition: all 0.25s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.meal-card:hover {
+  transform: translateY(-6px) scale(1.02);
+  box-shadow: 0 20px 50px rgba(0,0,0,0.12);
+}
 
         .meal-number {
           font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
@@ -688,6 +706,40 @@ export default function Home() {
                         <div className="meal-name serif">{meal.meal_name || meal.name || meal.dish}</div>
                         {meal.description && <p className="meal-desc">{meal.description}</p>}
                         <div className="ingredient-chips">
+                          <button
+  onClick={async () => {
+    const name = meal.meal_name || meal.name || meal.dish;
+    const data = await fetchNutrition(name);
+
+    setNutritionMap((prev: any) => ({
+      ...prev,
+      [name]: data
+    }));
+  }}
+  className="nutri-btn"
+>
+  🍽️ Show Nutrition
+</button>
+                          <button
+  onClick={async () => {
+    const data = await fetchNutrition(meal.meal_name || meal.name || meal.dish);
+    alert(
+      `🔥 ${data.calories} kcal\n💪 ${data.protein}g protein\n🍞 ${data.carbs}g carbs\n🥑 ${data.fat}g fat`
+    );
+  }}
+  style={{
+    marginTop: "10px",
+    padding: "6px 12px",
+    borderRadius: "8px",
+    border: "none",
+    background: "#4A6741",
+    color: "white",
+    cursor: "pointer",
+    fontSize: "12px"
+  }}
+>
+  View Nutrition
+</button>
                           {(meal.ingredients_used || []).map((ing: string, j: number) => (
                             <span key={j} className="chip">{ing}</span>
                           ))}

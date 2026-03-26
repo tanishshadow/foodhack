@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from fastapi import FastAPI,HTTPException,APIRouter,UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from app.api import pantry,meals,healthprofile,barcode,price,invoice
+from app.api import pantry,meals,healthprofile,barcode,price,invoice,nutrition
 import os
 from dotenv import load_dotenv
 
@@ -25,6 +25,7 @@ def root():
 app.include_router(pantry.router)
 app.include_router(meals.router)
 app.include_router(invoice.router)
+app.include_router(nutrition.router)
 
 
 # router = APIRouter(prefix="/meals",tags=["Meal"])

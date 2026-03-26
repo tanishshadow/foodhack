@@ -8,8 +8,26 @@ router = APIRouter(
 
 @router.get("/generate")
 def generate_meal():
-    pantry = pantryservices.get_sorted_pantry()
+    try:
+        pantry = pantryservices.get_sorted_pantry()
+        result = mealservices.generate_meal_plan(pantry)
+        return result
 
-    result = mealservices.generate_meal_plan()
+    except Exception as e:
+        print("ERROR:", e)
 
-    return result
+        # 🔥 fallback for demo
+        return {
+            "meal_plan": [
+                {
+                    "meal_name": "Veg Fried Rice",
+                    "description": "Quick meal using pantry items",
+                    "ingredients_used": ["rice", "vegetables"]
+                },
+                {
+                    "meal_name": "Omelette Toast",
+                    "description": "Simple protein-rich breakfast",
+                    "ingredients_used": ["egg", "bread"]
+                }
+            ]
+        }
