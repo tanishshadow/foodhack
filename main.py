@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from fastapi import FastAPI,HTTPException,APIRouter,UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from api import pantry,meals,healthprofile,barcode,price
+from app.api import pantry,meals,healthprofile,barcode,price,invoice
 import os
 from dotenv import load_dotenv
 
@@ -20,23 +20,27 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-router = APIRouter(prefix="/pantry",tags=["Pantry"])
+@app.get("/")
+def root():
+    return {"message":"Working"}
+# router = APIRouter(prefix="/pantry",tags=["Pantry"])
 app.include_router(pantry.router)
-
-
-router = APIRouter(prefix="/meals",tags=["Meal"])
 app.include_router(meals.router)
-
-router = APIRouter(prefix="/pantry",tags=["Pantry"])
-app.include_router(healthprofile.router)
+app.include_router(invoice.router)
 
 
-router = APIRouter(prefix="/barcode",tags=["Barcode"])
-app.include_router(barcode.router)
+# router = APIRouter(prefix="/meals",tags=["Meal"])
+# app.include_router(meals.router)
 
-router = APIRouter(prefix="pricecompare",tags=["Price Compare"])
-app.include_router(price.router)
+# router = APIRouter(prefix="/pantry",tags=["Pantry"])
+# app.include_router(healthprofile.router)
+
+
+# router = APIRouter(prefix="/barcode",tags=["Barcode"])
+# app.include_router(barcode.router)
+
+# router = APIRouter(prefix="pricecompare",tags=["Price Compare"])
+# app.include_router(price.router)
 
 
 

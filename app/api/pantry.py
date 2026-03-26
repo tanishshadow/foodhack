@@ -13,16 +13,16 @@ router = APIRouter(
 # Add item
 @router.post("/add")
 def add_item(item: Item):
-    return pantry_service.add_item(item)
+    return pantryservices.add_item(item)
 
 
 # Get all items
-@router.get("/", response_model=List[Item])
+@router.get("/")
 def get_pantry():
-    return pantry_service.get_items()
+    return pantryservices.get_sorted_pantry()
 
 
 #clear pantry (optional but useful)
 @router.delete("/clear")
 def clear():
-    return pantry_service.clear_pantry()
+    return pantryservices.clear_pantry()

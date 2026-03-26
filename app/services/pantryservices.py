@@ -16,13 +16,16 @@ def get_items():
 
 
 def get_sorted_pantry():
+    print("sorted function called")
     today = datetime.now()
+    # expiry_date = datetime.strptime(item["expiry"], "%d/%m/%Y")
 
     def get_status(item):
-        if item.expiry_date is None:
+        expiry_date = datetime.strptime(item.expiry, "%d/%m/%Y")
+        if item.expiry is None:
             return "unknown"
 
-        days_left = (item.expiry_date - today).days
+        days_left = (expiry_date - today).days
 
         if days_left <= 2:
             return "expiring"
@@ -45,9 +48,9 @@ def get_sorted_pantry():
         status = get_status(item)
         enriched.append({
             "name": item.name,
-            "quantity": item.quantity,
+            "qty": item.qty,
             "category": item.category,
-            "expiry_date": item.expiry_date,
+            "expiry": item.expiry,
             "status": status
         })
 
@@ -61,3 +64,9 @@ def get_sorted_pantry():
 def clear_pantry():
     pantry_db.clear()
     return {"message":"Pantry Cleared"}
+
+from app.models.pantry import Item
+
+def add_item_obj(item_dict):
+    item = Item(**item_dict)
+    pantry_db.append(item)
