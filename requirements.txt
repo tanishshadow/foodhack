@@ -2,8 +2,5 @@ fastapi
 uvicorn
 python-dotenv
 requests
-easyocr
-transformers
-torch
 pillow
 numpy
